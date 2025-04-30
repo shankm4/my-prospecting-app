@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
@@ -9,6 +9,8 @@ export default function Dashboard() {
   const [sentEmails, setSentEmails] = useState([]);
   const [language, setLanguage] = useState('fr');
   const [cvFile, setCvFile] = useState(null);
+  const [senderEmail, setSenderEmail] = useState('');
+  const [senderPassword, setSenderPassword] = useState('');
 
   const [userData, setUserData] = useState({
     name: '',
@@ -18,6 +20,12 @@ export default function Dashboard() {
     experience: '',
     value: ''
   });
+
+  useEffect(() => {
+    axios.get('https://my-prospecting-app.onrender.com/sent-emails')
+      .then(res => setSentEmails(res.data))
+      .catch(err => console.error('Erreur récupération historique :', err));
+  }, []);
 
   const generateEmails = (firstName, lastName, company) => {
     const base = company.replace(/ /g, '').toLowerCase();
@@ -89,12 +97,17 @@ export default function Dashboard() {
     const contact = contacts[currentIndex];
     const message = generateMessage(contact);
     const formData = new FormData();
+    formData.append('firstName', contact.firstName);
+    formData.append('lastName', contact.lastName);
+    formData.append('company', contact.company);
     formData.append('message', message);
     formData.append('emails', JSON.stringify(contact.emails));
+    formData.append('senderEmail', senderEmail);
+    formData.append('senderPassword', senderPassword);
     if (cvFile) formData.append('cv', cvFile);
 
     try {
-      await axios.post('http://localhost:3001/send-email', formData);
+      await axios.post('https://my-prospecting-app.onrender.com/send-email', formData);
       const newSent = {
         name: contact.name,
         company: contact.company,
@@ -133,6 +146,8 @@ export default function Dashboard() {
         <input placeholder="Date de début" className="border p-2" value={userData.startDate} onChange={e => setUserData({ ...userData, startDate: e.target.value })} />
         <input placeholder="Expérience" className="border p-2" value={userData.experience} onChange={e => setUserData({ ...userData, experience: e.target.value })} />
         <input placeholder="Valeur ajoutée" className="border p-2" value={userData.value} onChange={e => setUserData({ ...userData, value: e.target.value })} />
+        <input type="email" placeholder="Adresse Gmail" value={senderEmail} onChange={e => setSenderEmail(e.target.value)} className="border p-2" />
+        <input type="password" placeholder="Mot de passe d'application Gmail" value={senderPassword} onChange={e => setSenderPassword(e.target.value)} className="border p-2" />
         <input type="file" accept=".pdf" onChange={e => setCvFile(e.target.files[0])} className="border p-2" />
         <input type="file" accept=".csv,.xlsx,.xls" onChange={handleFileUpload} className="border p-2" />
       </div>
