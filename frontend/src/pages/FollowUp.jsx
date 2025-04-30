@@ -3,43 +3,46 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
 function FollowUp() {
-  const [contacts, setContacts] = useState([]);
+  const [sentEmails, setSentEmails] = useState([]);
 
   useEffect(() => {
-    axios.get('https://my-prospecting-backend.onrender.com/sent-emails')
-      .then(res => setContacts(res.data))
-      .catch(console.error);
+    axios.get('https://my-prospecting-backend.onrender.com/sent-emails').then(res => setSentEmails(res.data));
   }, []);
 
-  const toggleAnswered = async (c) => {
+  const toggleAnswered = async (index) => {
+    const contact = sentEmails[index];
     await axios.post('https://my-prospecting-backend.onrender.com/mark-answered', {
-      firstName: c.firstName,
-      lastName: c.lastName,
-      company: c.company
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      company: contact.company
     });
-    setContacts(prev => prev.map(p => p.firstName === c.firstName && p.lastName === c.lastName && p.company === c.company ? { ...p, answered: !p.answered } : p));
+    const updated = [...sentEmails];
+    updated[index].answered = !updated[index].answered;
+    setSentEmails(updated);
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold">Suivi des envois</h2>
-      <table className="w-full mt-4">
-        <thead className="bg-gray-100">
+    <div className="p-6 max-w-5xl mx-auto bg-white shadow rounded-xl mt-6">
+      <h2 className="text-3xl font-bold text-blue-700 mb-4">📊 Suivi des mails envoyés</h2>
+      <table className="table-auto w-full text-sm">
+        <thead className="bg-blue-100">
           <tr>
-            <th className="text-left p-2">Nom</th>
-            <th className="text-left p-2">Entreprise</th>
-            <th className="text-left p-2">Date</th>
-            <th className="text-center p-2">Réponse</th>
+            <th className="border px-2 py-1">Nom</th>
+            <th className="border px-2 py-1">Entreprise</th>
+            <th className="border px-2 py-1">Emails</th>
+            <th className="border px-2 py-1">Date</th>
+            <th className="border px-2 py-1">Réponse</th>
           </tr>
         </thead>
         <tbody>
-          {contacts.map((c, i) => (
-            <tr key={i} className="border-t">
-              <td className="p-2">{c.firstName} {c.lastName}</td>
-              <td className="p-2">{c.company}</td>
-              <td className="p-2">{new Date(c.dateSent).toLocaleDateString()}</td>
-              <td className="p-2 text-center">
-                <input type="checkbox" checked={c.answered} onChange={() => toggleAnswered(c)} />
+          {sentEmails.map((item, idx) => (
+            <tr key={idx} className="hover:bg-gray-50">
+              <td className="border px-2 py-1">{item.firstName} {item.lastName}</td>
+              <td className="border px-2 py-1">{item.company}</td>
+              <td className="border px-2 py-1">{item.emails?.join(', ')}</td>
+              <td className="border px-2 py-1">{new Date(item.dateSent).toLocaleDateString()}</td>
+              <td className="border px-2 py-1 text-center">
+                <input type="checkbox" checked={item.answered} onChange={() => toggleAnswered(idx)} />
               </td>
             </tr>
           ))}
