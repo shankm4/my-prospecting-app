@@ -1,39 +1,30 @@
-// src/pages/Home.jsx
+
 import React, { useState } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
+import { useUser } from '../context/UserContext';
 
 function Home() {
+  const { userData, setUserData } = useUser();
   const [contacts, setContacts] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [language, setLanguage] = useState('fr');
-  const [cvFile, setCvFile] = useState(null);
-  const [otherFile, setOtherFile] = useState(null);
+  const [cvFile, setCvFile] = useState(userData.cvFile || null);
+  const [otherFile, setOtherFile] = useState(userData.otherFile || null);
 
-  const [userData, setUserData] = useState({
-    name: '', status: '', goal: '', startDate: '', experience: '', value: '', senderEmail: '', senderPassword: ''
-  });
-
-  const parseContacts = (rows) => {
-    const parsed = rows.map(row => {
-      const nameRaw = (row['C'] || '').replace(/LinkedIn\s*·\s*/gi, '').trim();
-      const [firstName = '', ...lastNameParts] = nameRaw.split(' ');
-      const lastName = lastNameParts.join(' ');
-      const company = (row['I'] || 'Entreprise inconnue').trim();
-      if (!firstName || !lastName || !company) return null;
-      const base = company.replace(/ /g, '').toLowerCase();
-      const emails = [`${firstName}.${lastName}@${base}.com`, `${firstName}@${base}.com`];
-      return { name: `${firstName} ${lastName}`, firstName, lastName, company, emails };
-    }).filter(Boolean);
-    setContacts(parsed);
+  const handleUserChange = (field, value) => {
+    setUserData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    const ext = file.name.split('.').pop();
+    const ext = file.name.split('.').pop().toLowerCase();
+
     if (ext === 'csv') {
-      Papa.parse(file, { header: true, complete: results => parseContacts(results.data) });
+      Papa.parse(file, {
+        header: true,
+        complete: results => parseContacts(results.data)
+      });
     } else if (['xlsx', 'xls'].includes(ext)) {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -46,18 +37,61 @@ function Home() {
     }
   };
 
+  const generateEmails = (firstName, lastName, company) => {
+    const f = firstName.toLowerCase();
+    const l = lastName.toLowerCase();
+    const domain = company.replace(/\s+/g, '').toLowerCase();
+
+    const patterns = [
+      `${f[0]}.${l}`,
+      `${f}.${l}`,
+      `${f}-${l}`,
+      `${f[0]}.${l[0]}`,
+      `${l}`,
+      `${f}_${l}`,
+      `${f}`,
+      `${l}.${f}`,
+      `${f}${l}`,
+      `${f}${l[0]}`,
+      `${f[0]}${l}`,
+      `${l}_${f}`,
+      `${f[0]}_${l}`
+    ];
+
+    const suffixes = ['.com', '.fr', '.io', '.org', '.co', '.dev'];
+
+    return patterns.flatMap(p => suffixes.map(s => `${p}@${domain}${s}`));
+  };
+
+  const parseContacts = (rows) => {
+    const parsed = rows.map(row => {
+      const nameRaw = (row['C'] || '').replace(/LinkedIn\s*·\s*/gi, '').trim();
+      const [firstName = '', ...lastNameParts] = nameRaw.split(' ');
+      const lastName = lastNameParts.join(' ');
+      const company = (row['I'] || 'Entreprise inconnue').trim();
+      if (!firstName || !lastName || !company) return null;
+
+      const emails = generateEmails(firstName, lastName, company);
+      return { name: `${firstName} ${lastName}`, firstName, lastName, company, emails };
+    }).filter(Boolean);
+
+    setContacts(parsed);
+  };
+
   const generateMessage = (contact) => {
-    const { status, goal, startDate, experience, value, name } = userData;
-    if (language === 'fr') {
-      return `Bonjour ${contact.name},\n\nJe suis actuellement ${status} et je recherche ${goal} à partir de ${startDate}.\nAprès une expérience chez ${experience}, je serais ravie d'intégrer ${contact.company} pour ${value}.\n\nVous trouverez ci-joint mon CV.\nBien cordialement,\n${name}`;
-    } else {
+    const { name, status, goal, startDate, experience, value, language } = userData;
+
+    if (language === 'en') {
       return `Dear ${contact.name},\n\nI am currently ${status} and I am seeking ${goal} starting from ${startDate}.\nAfter gaining experience at ${experience}, I would be thrilled to join ${contact.company} to ${value}.\n\nPlease find attached my resume.\nBest regards,\n${name}`;
+    } else {
+      return `Bonjour ${contact.name},\n\nJe suis actuellement ${status} et je recherche ${goal} à partir de ${startDate}.\nAprès une expérience chez ${experience}, je serais ravie d'intégrer ${contact.company} pour ${value}.\n\nVous trouverez ci-joint mon CV.\nBien cordialement,\n${name}`;
     }
   };
 
   const handleSendEmail = async () => {
     const contact = contacts[currentIndex];
     const message = generateMessage(contact);
+
     const formData = new FormData();
     formData.append('message', message);
     formData.append('emails', JSON.stringify(contact.emails));
@@ -82,18 +116,18 @@ function Home() {
       <h2 className="text-3xl font-bold text-blue-700">📬 Prospection automatique</h2>
 
       <div className="grid grid-cols-2 gap-4">
-        <input className="border p-2 rounded" placeholder="Votre nom" value={userData.name} onChange={e => setUserData({ ...userData, name: e.target.value })} />
-        <select className="border p-2 rounded" value={language} onChange={e => setLanguage(e.target.value)}>
+        <input className="border p-2 rounded" placeholder="Votre nom" value={userData.name} onChange={e => handleUserChange('name', e.target.value)} />
+        <select className="border p-2 rounded" value={userData.language} onChange={e => handleUserChange('language', e.target.value)}>
           <option value="fr">Français</option>
           <option value="en">English</option>
         </select>
-        <input className="border p-2 rounded" placeholder="Statut" value={userData.status} onChange={e => setUserData({ ...userData, status: e.target.value })} />
-        <input className="border p-2 rounded" placeholder="Objectif" value={userData.goal} onChange={e => setUserData({ ...userData, goal: e.target.value })} />
-        <input className="border p-2 rounded" placeholder="Date de début" value={userData.startDate} onChange={e => setUserData({ ...userData, startDate: e.target.value })} />
-        <input className="border p-2 rounded" placeholder="Expérience" value={userData.experience} onChange={e => setUserData({ ...userData, experience: e.target.value })} />
-        <input className="border p-2 rounded" placeholder="Valeur ajoutée" value={userData.value} onChange={e => setUserData({ ...userData, value: e.target.value })} />
-        <input className="border p-2 rounded" placeholder="Votre email d'envoi" value={userData.senderEmail} onChange={e => setUserData({ ...userData, senderEmail: e.target.value })} />
-        <input className="border p-2 rounded" placeholder="Mot de passe d'application" value={userData.senderPassword} onChange={e => setUserData({ ...userData, senderPassword: e.target.value })} />
+        <input className="border p-2 rounded" placeholder="Statut" value={userData.status} onChange={e => handleUserChange('status', e.target.value)} />
+        <input className="border p-2 rounded" placeholder="Objectif" value={userData.goal} onChange={e => handleUserChange('goal', e.target.value)} />
+        <input className="border p-2 rounded" placeholder="Date de début" value={userData.startDate} onChange={e => handleUserChange('startDate', e.target.value)} />
+        <input className="border p-2 rounded" placeholder="Expérience" value={userData.experience} onChange={e => handleUserChange('experience', e.target.value)} />
+        <input className="border p-2 rounded" placeholder="Valeur ajoutée" value={userData.value} onChange={e => handleUserChange('value', e.target.value)} />
+        <input className="border p-2 rounded" placeholder="Votre email d'envoi" value={userData.senderEmail} onChange={e => handleUserChange('senderEmail', e.target.value)} />
+        <input className="border p-2 rounded" placeholder="Mot de passe d'application" value={userData.senderPassword} onChange={e => handleUserChange('senderPassword', e.target.value)} />
       </div>
 
       <div className="grid grid-cols-3 gap-4">
