@@ -1,39 +1,29 @@
 // src/pages/ManualSend.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useUser } from '../context/UserContext';
 
 function ManualSend() {
-  const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    company: ''
-  });
-  const [userData, setUserData] = useState({});
+  const { userData } = useUser();
+  const [form, setForm] = useState({ firstName: '', lastName: '', company: '' });
   const [emails, setEmails] = useState([]);
   const [customMessage, setCustomMessage] = useState('');
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('userData')) || {};
-    setUserData(saved);
-  }, []);
-
-  useEffect(() => {
-    if (form.firstName && form.lastName && form.company) {
+    if (form.firstName && form.lastName && form.company && userData.name) {
       const f = form.firstName.toLowerCase();
       const l = form.lastName.toLowerCase();
       const d = form.company.replace(/\s+/g, '').toLowerCase();
       const suffixes = ['.com', '.fr'];
       const bases = [
-        `${f}.${l}`, `${f}_${l}`, `${f}${l}`,
-        `${f[0]}${l}`, `${f}${l[0]}`, `${l}.${f}`, `${l}${f}`,
-        `${f[0]}.${l}`, `${l}.${f[0]}`, `${l}_${f}`, `${l}${f[0]}`,
-        `${f}`, `${l}`, `${f}-${l}`, `${l}-${f}`, `${f[0]}${l[0]}`
+        `${f}.${l}`, `${f[0]}.${l}`, `${f[0]}${l}`, `${f}${l[0]}`, `${l}.${f}`,
+        `${l}${f}`, `${f}_${l}`, `${f}${l}`, `${l}_${f}`, `${f}-${l}`
       ];
       const generated = bases.flatMap(base => suffixes.map(s => `${base}@${d}${s}`));
       setEmails(generated);
 
       const auto = userData.language === 'en'
-        ? `Dear ${form.firstName} ${form.lastName},\n\nI am currently ${userData.status} and looking for ${userData.goal} starting from ${userData.startDate}.\nAfter gaining experience at ${userData.experience}, I would love to join ${form.company} for ${userData.value}.\n\nPlease find attached my resume.\n\nBest regards,\n${userData.name}`
+        ? `Dear ${form.firstName} ${form.lastName},\n\nI am currently ${userData.status} and looking for ${userData.goal} starting from ${userData.startDate}.\nAfter gaining experience at ${userData.experience}, I would love to join ${form.company} to ${userData.value}.\n\nPlease find attached my resume.\n\nBest regards,\n${userData.name}`
         : `Bonjour ${form.firstName} ${form.lastName},\n\nJe suis actuellement ${userData.status} et je recherche ${userData.goal} à partir de ${userData.startDate}.\nAprès une expérience chez ${userData.experience}, je serais ravie d'intégrer ${form.company} pour ${userData.value}.\n\nVous trouverez ci-joint mon CV.\n\nBien cordialement,\n${userData.name}`;
 
       setCustomMessage(auto);
@@ -72,3 +62,4 @@ function ManualSend() {
 }
 
 export default ManualSend;
+
