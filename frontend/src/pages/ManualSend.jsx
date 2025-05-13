@@ -5,25 +5,29 @@ import { useUser } from '../context/UserContext';
 
 function ManualSend() {
   const { userData } = useUser();
-  const [form, setForm] = useState({ firstName: '', lastName: '', company: '' });
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    company: ''
+  });
   const [emails, setEmails] = useState([]);
   const [customMessage, setCustomMessage] = useState('');
 
   useEffect(() => {
-    if (form.firstName && form.lastName && form.company && userData.name) {
+    if (form.firstName && form.lastName && form.company) {
       const f = form.firstName.toLowerCase();
       const l = form.lastName.toLowerCase();
       const d = form.company.replace(/\s+/g, '').toLowerCase();
       const suffixes = ['.com', '.fr'];
       const bases = [
-        `${f}.${l}`, `${f[0]}.${l}`, `${f[0]}${l}`, `${f}${l[0]}`, `${l}.${f}`,
-        `${l}${f}`, `${f}_${l}`, `${f}${l}`, `${l}_${f}`, `${f}-${l}`
+        `${f[0]}.${l}`, `${f[0]}${l}`, `${l}.${f[0]}`, `${l}${f[0]}`,
+        `${f}.${l}`, `${f}_${l}`, `${f}${l}`
       ];
       const generated = bases.flatMap(base => suffixes.map(s => `${base}@${d}${s}`));
       setEmails(generated);
 
       const auto = userData.language === 'en'
-        ? `Dear ${form.firstName} ${form.lastName},\n\nI am currently ${userData.status} and looking for ${userData.goal} starting from ${userData.startDate}.\nAfter gaining experience at ${userData.experience}, I would love to join ${form.company} to ${userData.value}.\n\nPlease find attached my resume.\n\nBest regards,\n${userData.name}`
+        ? `Dear ${form.firstName} ${form.lastName},\n\nI am currently ${userData.status} and looking for ${userData.goal} starting from ${userData.startDate}.\nAfter gaining experience at ${userData.experience}, I would love to join ${form.company} for ${userData.value}.\n\nPlease find attached my resume.\n\nBest regards,\n${userData.name}`
         : `Bonjour ${form.firstName} ${form.lastName},\n\nJe suis actuellement ${userData.status} et je recherche ${userData.goal} à partir de ${userData.startDate}.\nAprès une expérience chez ${userData.experience}, je serais ravie d'intégrer ${form.company} pour ${userData.value}.\n\nVous trouverez ci-joint mon CV.\n\nBien cordialement,\n${userData.name}`;
 
       setCustomMessage(auto);
@@ -45,14 +49,11 @@ function ManualSend() {
       if (userData.otherFile) formData.append('otherFile', userData.otherFile);
 
       const response = await axios.post('https://my-prospecting-backend.onrender.com/send-email', formData);
-      if (response.data.success) {
-        alert('✅ Email envoyé !');
-      } else {
-        alert('❌ Une erreur est survenue.');
-      }
+      console.log('✅ Email envoyé !', response.data);
+      alert('✅ Email envoyé !');
     } catch (error) {
-      console.error('Erreur lors de l\'envoi manuel :', error);
-      alert('❌ Erreur réseau ou serveur.');
+      console.error('❌ Erreur lors de l\'envoi', error);
+      alert('Erreur lors de l\'envoi');
     }
   };
 
