@@ -31,20 +31,29 @@ function ManualSend() {
   }, [form, userData]);
 
   const handleSend = async () => {
-    const formData = new FormData();
-    formData.append('firstName', form.firstName);
-    formData.append('lastName', form.lastName);
-    formData.append('company', form.company);
-    formData.append('emails', JSON.stringify(emails));
-    formData.append('subject', userData.language === 'en' ? 'Application - Internship Opportunity' : 'Candidature - Opportunité de stage');
-    formData.append('message', customMessage);
-    formData.append('senderEmail', userData.senderEmail);
-    formData.append('senderPassword', userData.senderPassword);
-    if (userData.cvFile) formData.append('cv', userData.cvFile);
-    if (userData.otherFile) formData.append('otherFile', userData.otherFile);
+    try {
+      const formData = new FormData();
+      formData.append('firstName', form.firstName);
+      formData.append('lastName', form.lastName);
+      formData.append('company', form.company);
+      formData.append('emails', JSON.stringify(emails));
+      formData.append('subject', userData.language === 'en' ? 'Application - Internship Opportunity' : 'Candidature - Opportunité de stage');
+      formData.append('message', customMessage);
+      formData.append('senderEmail', userData.senderEmail);
+      formData.append('senderPassword', userData.senderPassword);
+      if (userData.cvFile) formData.append('cv', userData.cvFile);
+      if (userData.otherFile) formData.append('otherFile', userData.otherFile);
 
-    await axios.post('https://my-prospecting-backend.onrender.com/send-email', formData);
-    alert('✅ Email envoyé !');
+      const response = await axios.post('https://my-prospecting-backend.onrender.com/send-email', formData);
+      if (response.data.success) {
+        alert('✅ Email envoyé !');
+      } else {
+        alert('❌ Une erreur est survenue.');
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi manuel :', error);
+      alert('❌ Erreur réseau ou serveur.');
+    }
   };
 
   return (
