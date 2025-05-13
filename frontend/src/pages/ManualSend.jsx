@@ -1,38 +1,57 @@
 // src/pages/ManualSend.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 function ManualSend() {
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
-    company: '',
-    email: '',
-    senderEmail: '',
-    senderPassword: '',
-    subject: '',
-    message: ''
+    company: ''
   });
+  const [userData, setUserData] = useState({});
+  const [emails, setEmails] = useState([]);
+  const [customMessage, setCustomMessage] = useState('');
 
-  const [cv, setCv] = useState(null);
-  const [other, setOther] = useState(null);
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('userData')) || {};
+    setUserData(saved);
+  }, []);
 
-  const generateMessage = () => {
-    return `Dear ${form.firstName} ${form.lastName},\n\nI hope this message finds you well. I am currently looking for new opportunities and I would be thrilled to contribute to ${form.company}.\n\nPlease find attached my resume.\nBest regards,`;
-  };
+  useEffect(() => {
+    if (form.firstName && form.lastName && form.company) {
+      const f = form.firstName.toLowerCase();
+      const l = form.lastName.toLowerCase();
+      const d = form.company.replace(/\s+/g, '').toLowerCase();
+      const suffixes = ['.com', '.fr'];
+      const bases = [
+        `${f}.${l}`, `${f}_${l}`, `${f}${l}`,
+        `${f[0]}${l}`, `${f}${l[0]}`, `${l}.${f}`, `${l}${f}`,
+        `${f[0]}.${l}`, `${l}.${f[0]}`, `${l}_${f}`, `${l}${f[0]}`,
+        `${f}`, `${l}`, `${f}-${l}`, `${l}-${f}`, `${f[0]}${l[0]}`
+      ];
+      const generated = bases.flatMap(base => suffixes.map(s => `${base}@${d}${s}`));
+      setEmails(generated);
+
+      const auto = userData.language === 'en'
+        ? `Dear ${form.firstName} ${form.lastName},\n\nI am currently ${userData.status} and looking for ${userData.goal} starting from ${userData.startDate}.\nAfter gaining experience at ${userData.experience}, I would love to join ${form.company} for ${userData.value}.\n\nPlease find attached my resume.\n\nBest regards,\n${userData.name}`
+        : `Bonjour ${form.firstName} ${form.lastName},\n\nJe suis actuellement ${userData.status} et je recherche ${userData.goal} à partir de ${userData.startDate}.\nAprès une expérience chez ${userData.experience}, je serais ravie d'intégrer ${form.company} pour ${userData.value}.\n\nVous trouverez ci-joint mon CV.\n\nBien cordialement,\n${userData.name}`;
+
+      setCustomMessage(auto);
+    }
+  }, [form, userData]);
 
   const handleSend = async () => {
     const formData = new FormData();
     formData.append('firstName', form.firstName);
     formData.append('lastName', form.lastName);
     formData.append('company', form.company);
-    formData.append('emails', JSON.stringify([form.email]));
-    formData.append('subject', form.subject);
-    formData.append('message', form.message || generateMessage());
-    formData.append('senderEmail', form.senderEmail);
-    formData.append('senderPassword', form.senderPassword);
-    if (cv) formData.append('cv', cv);
-    if (other) formData.append('otherFile', other);
+    formData.append('emails', JSON.stringify(emails));
+    formData.append('subject', userData.language === 'en' ? 'Application - Internship Opportunity' : 'Candidature - Opportunité de stage');
+    formData.append('message', customMessage);
+    formData.append('senderEmail', userData.senderEmail);
+    formData.append('senderPassword', userData.senderPassword);
+    if (userData.cvFile) formData.append('cv', userData.cvFile);
+    if (userData.otherFile) formData.append('otherFile', userData.otherFile);
 
     await axios.post('https://my-prospecting-backend.onrender.com/send-email', formData);
     alert('✅ Email envoyé !');
@@ -40,28 +59,14 @@ function ManualSend() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6 bg-white shadow rounded-xl mt-6">
-      <h2 className="text-3xl font-bold text-blue-700">📤 Envoi manuel</h2>
-      <div className="grid grid-cols-2 gap-4">
+      <h2 className="text-3xl font-bold text-blue-700">✍️ Envoi manuel</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <input placeholder="Prénom" className="border p-2 rounded" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })} />
         <input placeholder="Nom" className="border p-2 rounded" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} />
-        <input placeholder="Entreprise" className="border p-2 rounded" value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} />
-        <input placeholder="Email du contact" className="border p-2 rounded" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-        <input placeholder="Adresse email d'envoi" className="border p-2 rounded" value={form.senderEmail} onChange={e => setForm({ ...form, senderEmail: e.target.value })} />
-        <input placeholder="Mot de passe d'application" className="border p-2 rounded" value={form.senderPassword} onChange={e => setForm({ ...form, senderPassword: e.target.value })} />
+        <input placeholder="Entreprise" className="border p-2 rounded col-span-2" value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} />
       </div>
-      <input placeholder="Objet du mail" className="border p-2 rounded w-full" value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} />
-      <textarea rows="8" className="border p-2 rounded w-full text-sm" placeholder="Message (facultatif)" value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} />
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-600">📎 CV</label>
-          <input type="file" onChange={e => setCv(e.target.files[0])} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-600">📎 Autre document</label>
-          <input type="file" onChange={e => setOther(e.target.files[0])} />
-        </div>
-      </div>
-      <button onClick={handleSend} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded w-full mt-4">Envoyer le mail</button>
+      <textarea rows="10" className="border p-3 rounded w-full text-sm" value={customMessage} onChange={e => setCustomMessage(e.target.value)} />
+      <button onClick={handleSend} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded w-full mt-2">📤 Envoyer le mail</button>
     </div>
   );
 }
