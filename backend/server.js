@@ -9,7 +9,9 @@ const nodemailer = require('nodemailer');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'https://my-prospecting-app.vercel.app'
+}));
 app.use(express.json());
 const upload = multer({ dest: 'uploads/' });
 

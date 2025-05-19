@@ -47,16 +47,19 @@ function ManualSend() {
       formData.append('senderPassword', userData.senderPassword);
       if (userData.cvFile) formData.append('cv', userData.cvFile);
       if (userData.otherFile) formData.append('otherFile', userData.otherFile);
-
-      const response = await axios.post('https://my-prospecting-backend.onrender.com/send-email', formData);
-      console.log('✅ Email envoyé !', response.data);
+  
+      const response = await axios.post(
+        'https://my-prospecting-backend.onrender.com/send-email',
+        formData
+      );
+      console.log('✅ Réponse du serveur:', response.data);
       alert('✅ Email envoyé !');
-    } catch (error) {
-      console.error('❌ Erreur lors de l\'envoi', error);
-      alert('Erreur lors de l\'envoi');
+    } catch (err) {
+      console.error('❌ Erreur complète:', err);
+      alert('❌ Erreur lors de l’envoi : ' + (err.response?.data?.error || err.message));
     }
   };
-
+  
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6 bg-white shadow rounded-xl mt-6">
       <h2 className="text-3xl font-bold text-blue-700">✍️ Envoi manuel</h2>
