@@ -9,9 +9,24 @@ const nodemailer = require('nodemailer');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const app = express();
+const cors = require('cors');
+
+const allowedOrigins = [
+  'https://my-prospecting-app.vercel.app',
+  'http://localhost:3000'
+];
+
 app.use(cors({
-  origin: 'https://my-prospecting-app.vercel.app'
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
 }));
+
 app.use(express.json());
 const upload = multer({ dest: 'uploads/' });
 
@@ -187,6 +202,11 @@ app.post('/delete-contact', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
+app.use((req, res, next) => {
+  console.log('🔍 Requête reçue depuis :', req.headers.origin);
+  next();
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Serveur backend lancé sur http://localhost:${PORT}`);
 });
