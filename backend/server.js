@@ -1,4 +1,3 @@
-console.log("🟢 Serveur Express lancé");
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -10,36 +9,26 @@ const nodemailer = require('nodemailer');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const app = express();
+const upload = multer({ dest: 'uploads/' });
 
-const allowedOrigins = [
-  'https://my-prospecting-app.vercel.app',
-  'http://localhost:3000'
-];
+// ✅ CORS : temporairement ouvert à toutes les origines
+app.use(cors());
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
-}));
+// ✅ Middleware standard
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+// ✅ Test route pour vérifier que le serveur répond
 app.get('/', (req, res) => {
   res.send('✅ Backend is running');
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-const upload = multer({ dest: 'uploads/' });
-
+// ✅ Connexion MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Connexion MongoDB réussie"))
   .catch(err => console.error("❌ Connexion MongoDB échouée :", err));
 
+// ✅ Schéma Mongo
 const emailSchema = new mongoose.Schema({
   firstName: String,
   lastName: String,
@@ -51,11 +40,11 @@ const emailSchema = new mongoose.Schema({
 
 const Email = mongoose.model('Email', emailSchema);
 
+// ✅ Génération d’emails
 const generateEmails = (firstName, lastName, domain) => {
   const f = firstName.toLowerCase();
   const l = lastName.toLowerCase();
   const d = domain.replace(/\s+/g, '').toLowerCase() || 'gmail';
-
   const bases = [
     `${f}.${l}`, `${f}_${l}`, `${f}${l}`,
     `${f[0]}${l}`, `${f}${l[0]}`,
@@ -65,42 +54,28 @@ const generateEmails = (firstName, lastName, domain) => {
     `${f}`, `${l}`, `${f}-${l}`, `${l}-${f}`,
     `${f[0]}${l[0]}`
   ];
-
   const suffixes = ['.com', '.fr'];
-  const emails = [];
-
-  for (const base of bases) {
-    for (const suffix of suffixes) {
-      emails.push(`${base}@${d}${suffix}`);
-    }
-  }
-  return emails;
+  return bases.flatMap(base => suffixes.map(suffix => `${base}@${d}${suffix}`));
 };
 
+// ✅ Upload CSV
 app.post('/upload-csv', upload.single('file'), async (req, res) => {
   try {
     const workbook = xlsx.readFile(req.file.path);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rawData = xlsx.utils.sheet_to_json(sheet, { header: 1 });
-
     const contacts = [];
 
     for (let i = 1; i < rawData.length; i++) {
       const row = rawData[i];
       const nameCell = row[2] || '';
       const companyCell = row[8] || '';
-
       if (!nameCell) continue;
 
-      let fullName = nameCell.replace('LinkedIn', '').replace('·', '').trim();
-      const nameParts = fullName.split(' ').filter(Boolean);
+      const nameParts = nameCell.replace('LinkedIn', '').replace('·', '').trim().split(' ').filter(Boolean);
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
-
-      let company = companyCell.trim();
-      if (!company || company.toLowerCase().includes('linkedin') || company.toLowerCase().includes('unknown')) {
-        company = '';
-      }
+      const company = (companyCell || '').trim();
 
       const emails = generateEmails(firstName, lastName, company);
       contacts.push({ firstName, lastName, company, emails });
@@ -114,11 +89,11 @@ app.post('/upload-csv', upload.single('file'), async (req, res) => {
   }
 });
 
+// ✅ Envoi d’email
 app.post('/send-email', upload.fields([{ name: 'cv' }, { name: 'otherFile' }]), async (req, res) => {
   try {
     const { firstName, lastName, company, emails, message, subject, senderEmail, senderPassword } = req.body;
     const emailList = JSON.parse(emails);
-
     const cvPath = req.files?.cv?.[0]?.path || null;
     const otherPath = req.files?.otherFile?.[0]?.path || null;
 
@@ -126,17 +101,14 @@ app.post('/send-email', upload.fields([{ name: 'cv' }, { name: 'otherFile' }]), 
       host: 'smtp.gmail.com',
       port: 465,
       secure: true,
-      auth: {
-        user: senderEmail,
-        pass: senderPassword
-      }
+      auth: { user: senderEmail, pass: senderPassword }
     });
 
     for (const email of emailList) {
       await transporter.sendMail({
         from: senderEmail,
         to: email,
-        subject: subject,
+        subject,
         html: `<p>${message.replace(/\n/g, '<br>')}</p>`,
         attachments: [
           ...(cvPath ? [{ filename: req.files.cv[0].originalname, path: cvPath }] : []),
@@ -149,8 +121,6 @@ app.post('/send-email', upload.fields([{ name: 'cv' }, { name: 'otherFile' }]), 
         { $addToSet: { emails: email }, dateSent: new Date(), answered: false },
         { upsert: true }
       );
-
-      console.log(`✅ Email envoyé à ${email}`);
     }
 
     if (cvPath) fs.unlinkSync(cvPath);
@@ -163,6 +133,7 @@ app.post('/send-email', upload.fields([{ name: 'cv' }, { name: 'otherFile' }]), 
   }
 });
 
+// ✅ Routes de suivi
 app.get('/sent-emails', async (req, res) => {
   try {
     const emails = await Email.find();
@@ -176,10 +147,7 @@ app.get('/sent-emails', async (req, res) => {
 app.post('/mark-answered', async (req, res) => {
   try {
     const { firstName, lastName, company } = req.body;
-    await Email.updateOne(
-      { firstName, lastName, company },
-      { $set: { answered: true } }
-    );
+    await Email.updateOne({ firstName, lastName, company }, { $set: { answered: true } });
     res.send({ success: true });
   } catch (error) {
     console.error('❌ Erreur update answered:', error);
@@ -198,7 +166,9 @@ app.post('/delete-contact', async (req, res) => {
   }
 });
 
+// ✅ Lancement serveur
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
+  console.log('🟢 Serveur Express lancé');
   console.log(`🚀 Serveur backend lancé sur http://localhost:${PORT}`);
 });
