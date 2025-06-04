@@ -1,5 +1,6 @@
 const express = require('express');
 const multer = require('multer');
+const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
@@ -8,7 +9,6 @@ const nodemailer = require('nodemailer');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const app = express();
-const cors = require('cors');
 
 const allowedOrigins = [
   'https://my-prospecting-app.vercel.app',
@@ -27,15 +27,14 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const upload = multer({ dest: 'uploads/' });
 
-// Connexion MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Connexion MongoDB réussie"))
   .catch(err => console.error("❌ Connexion MongoDB échouée :", err));
 
-// Modèle Email
 const emailSchema = new mongoose.Schema({
   firstName: String,
   lastName: String,
@@ -47,7 +46,6 @@ const emailSchema = new mongoose.Schema({
 
 const Email = mongoose.model('Email', emailSchema);
 
-// Fonction pour générer les emails
 const generateEmails = (firstName, lastName, domain) => {
   const f = firstName.toLowerCase();
   const l = lastName.toLowerCase();
@@ -64,8 +62,8 @@ const generateEmails = (firstName, lastName, domain) => {
   ];
 
   const suffixes = ['.com', '.fr'];
-
   const emails = [];
+
   for (const base of bases) {
     for (const suffix of suffixes) {
       emails.push(`${base}@${d}${suffix}`);
@@ -74,7 +72,6 @@ const generateEmails = (firstName, lastName, domain) => {
   return emails;
 };
 
-// Route Import CSV/Excel
 app.post('/upload-csv', upload.single('file'), async (req, res) => {
   try {
     const workbook = xlsx.readFile(req.file.path);
@@ -101,7 +98,6 @@ app.post('/upload-csv', upload.single('file'), async (req, res) => {
       }
 
       const emails = generateEmails(firstName, lastName, company);
-
       contacts.push({ firstName, lastName, company, emails });
     }
 
@@ -113,7 +109,6 @@ app.post('/upload-csv', upload.single('file'), async (req, res) => {
   }
 });
 
-// Route Envoi Email
 app.post('/send-email', upload.fields([{ name: 'cv' }, { name: 'otherFile' }]), async (req, res) => {
   try {
     const { firstName, lastName, company, emails, message, subject, senderEmail, senderPassword } = req.body;
@@ -163,7 +158,6 @@ app.post('/send-email', upload.fields([{ name: 'cv' }, { name: 'otherFile' }]), 
   }
 });
 
-// Route pour récupérer tous les emails envoyés
 app.get('/sent-emails', async (req, res) => {
   try {
     const emails = await Email.find();
@@ -174,7 +168,6 @@ app.get('/sent-emails', async (req, res) => {
   }
 });
 
-// Route pour marquer un email comme répondu
 app.post('/mark-answered', async (req, res) => {
   try {
     const { firstName, lastName, company } = req.body;
@@ -189,7 +182,6 @@ app.post('/mark-answered', async (req, res) => {
   }
 });
 
-// Route pour supprimer un contact
 app.post('/delete-contact', async (req, res) => {
   try {
     const { firstName, lastName, company } = req.body;
@@ -202,11 +194,6 @@ app.post('/delete-contact', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.use((req, res, next) => {
-  console.log('🔍 Requête reçue depuis :', req.headers.origin);
-  next();
-});
-
 app.listen(PORT, () => {
   console.log(`🚀 Serveur backend lancé sur http://localhost:${PORT}`);
 });
